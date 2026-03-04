@@ -69,3 +69,7 @@ appendonly.aof
 __pycache__
 
 db.sqlite3
+
+Pitch.txt
+
+Interview_Questions.txt
