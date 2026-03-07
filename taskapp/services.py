@@ -1,5 +1,5 @@
 from .models import Task
-from .queue import enqueue
+from .queue import enqueue_task
 
 
 def create_task(task_name, payload):
@@ -9,6 +9,6 @@ def create_task(task_name, payload):
         payload=payload
     )
 
-    enqueue(task.id)
+    enqueue_task(task.id)
 
     return task

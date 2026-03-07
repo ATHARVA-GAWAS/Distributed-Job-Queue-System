@@ -1,57 +1,58 @@
+import time
 import os
 import sys
-import django
-import time
 
-# ✅ Add project root to Python path
-sys.path.append(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# -----------------------------------
+# Fix Import Path (VERY IMPORTANT)
+# -----------------------------------
+BASE_DIR = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
 )
 
-# ✅ Load Django settings
-os.environ.setdefault(
-    "DJANGO_SETTINGS_MODULE",
-    "mini_celery.settings"
-)
+sys.path.append(BASE_DIR)
 
-django.setup()
-
-# NOW Django apps are available
-from taskapp.queue import dequeue, enqueue
-from taskapp.models import Task
-from taskapp.tasks import TASK_REGISTRY
+# -----------------------------------
+# Imports
+# -----------------------------------
+from taskapp.queue import dequeue
+from taskapp.dispatcher import dispatch
 
 
-print("✅ Worker started...")
+# -----------------------------------
+# Worker Info
+# -----------------------------------
+WORKER_ID = os.getpid()
 
-while True:
 
-    task_id = dequeue()
+def start_worker():
+    print(f"\n🚀 Worker Started | ID: {WORKER_ID}\n")
 
-    task = Task.objects.get(id=task_id)
+    while True:
 
-    task.status = "PROCESSING"
-    task.save()
+        task = dequeue()
 
-    try:
-        func = TASK_REGISTRY[task.task_name]
+        if task:
+            print(f"\n[WORKER {WORKER_ID}] Picked Task:")
+            print(task)
 
-        result = func(task.payload)
+            try:
+                result = dispatch(task)
 
-        task.status = "SUCCESS"
-        task.result = result
+                print(
+                    f"[WORKER {WORKER_ID}] ✅ Completed → {result}"
+                )
 
-    except Exception as e:
+            except Exception as e:
+                print(
+                    f"[WORKER {WORKER_ID}] ❌ Failed → {e}"
+                )
 
-        task.retry_count += 1
-
-        if task.retry_count < task.max_retries:
-            enqueue(task.id)
-            task.status = "PENDING"
         else:
-            task.status = "FAILED"
-            task.result = str(e)
+            time.sleep(1)
 
-    task.save()
 
-    time.sleep(1)
+# -----------------------------------
+# Entry Point
+# -----------------------------------
+if __name__ == "__main__":
+    start_worker()

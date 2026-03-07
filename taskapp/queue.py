@@ -1,17 +1,61 @@
 import redis
-from django.conf import settings
+import json
 
-redis_client = redis.Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
+# -----------------------------
+# Redis Configuration
+# -----------------------------
+REDIS_HOST = "localhost"
+REDIS_PORT = 6379
+QUEUE_NAME = "task_queue"
+
+
+# -----------------------------
+# Redis Connection
+# -----------------------------
+r = redis.Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
     decode_responses=True
 )
 
 
-def enqueue(task_id):
-    redis_client.lpush(settings.QUEUE_NAME, str(task_id))
+# -----------------------------
+# Enqueue Task
+# -----------------------------
+def enqueue_task(task_type, payload):
+    """
+    Push task into Redis queue
+    """
+
+    task = {
+        "task_type": task_type,
+        "payload": payload
+    }
+
+    r.lpush(QUEUE_NAME, json.dumps(task))
+
+    print(f"[QUEUE] Task added → {task_type}")
 
 
+# -----------------------------
+# Dequeue Task
+# -----------------------------
 def dequeue():
-    _, task_id = redis_client.brpop(settings.QUEUE_NAME)
-    return task_id
+    """
+    Pop task from Redis queue
+    Worker consumes from here
+    """
+
+    task = r.rpop(QUEUE_NAME)
+
+    if task:
+        return json.loads(task)
+
+    return None
+
+
+# -----------------------------
+# Queue Size (for monitoring)
+# -----------------------------
+def get_queue_size():
+    return r.llen(QUEUE_NAME)
